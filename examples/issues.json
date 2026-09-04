@@ -1,0 +1,10 @@
+[
+  {
+    "repository": "acme/app",
+    "number": 42,
+    "title": "Fix timeout when uploading large files",
+    "body": "Add a regression test and keep the retry policy bounded.",
+    "labels": ["bug", "help wanted"],
+    "url": "https://github.com/acme/app/issues/42"
+  }
+]
