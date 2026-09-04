@@ -9,7 +9,7 @@ from devforge.workflow import DevForgeWorkflow
 def test_workflow_scans_and_claims_queued_task(tmp_path) -> None:
     payload = [{"number": 3, "title": "Fix parser bug", "body": "repro", "labels": [{"name": "bug"}]}]
     source = GitHubIssueSource(request=lambda request: json.dumps(payload).encode())
-    workflow = DevForgeWorkflow(("acme/app",), TaskStore(tmp_path / "db"), source)
+    workflow = DevForgeWorkflow(("acme/app",), TaskStore(tmp_path / "db"), source, threshold=0.4)
     result = workflow.scan()
     assert result.queued == 1
     plan = workflow.claim("acme/app#3")
