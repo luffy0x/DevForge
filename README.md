@@ -10,10 +10,11 @@ The MVP intentionally excludes autonomous CI/CD, deployment, and automated code 
 
 ## Run locally
 
-Use sample input:
+Install and test:
 
 ```bash
-python -m devforge --issues-file examples/issues.json --repository acme/app
+python -m pip install -e ".[test]"
+python -m pytest
 ```
 
 Scan live GitHub issues (set `GITHUB_TOKEN` for private repositories or higher rate limits):
@@ -22,6 +23,12 @@ Scan live GitHub issues (set `GITHUB_TOKEN` for private repositories or higher r
 python -m devforge --github-repository owner/name
 ```
 
+Claim a queued task for Contributor:
+
+```bash
+python -m devforge claim --task owner/name#123
+```
+
 ## Status
 
-MVP core pipeline is implemented on the development branch. Changes enter `main` only through reviewed pull requests.
+MVP core pipeline is implemented. Changes enter `main` only through reviewed pull requests.
