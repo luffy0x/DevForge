@@ -2,7 +2,7 @@ from collections.abc import Iterable
 
 from .contributor import ContributionPlan, ContributorAgent
 from .finder import Finder
-from .github import GitHubIssueSource
+from .github import GitHubIssueSource, normalize_repository
 from .models import CandidateTask
 from .pipeline import MvpPipeline, PipelineResult
 from .queue import TaskStore
@@ -13,7 +13,7 @@ class DevForgeWorkflow:
     """Application service coordinating discovery, scoring, queueing, and claiming."""
 
     def __init__(self, repositories: Iterable[str], store: TaskStore, source: GitHubIssueSource | None = None, threshold: float = 0.5) -> None:
-        repositories = tuple(repositories)
+        repositories = tuple(normalize_repository(repository) for repository in repositories)
         self.source = source or GitHubIssueSource()
         self.pipeline = MvpPipeline(Finder(repositories), ScoreAgent(), store, threshold)
         self.contributor = ContributorAgent(store)
