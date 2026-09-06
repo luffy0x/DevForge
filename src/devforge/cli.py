@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 from .finder import Finder
-from .github import GitHubIssueSource
+from .github import GitHubIssueSource, normalize_repository
 from .models import Issue
 from .pipeline import MvpPipeline
 from .queue import TaskStore
@@ -30,9 +30,9 @@ def main() -> int:
 
     if args.issues_file:
         issues = _issues_from_json(args.issues_file)
-        repositories = args.repository or sorted({issue.repository for issue in issues})
+        repositories = [normalize_repository(repository) for repository in (args.repository or sorted({issue.repository for issue in issues}))]
     else:
-        repositories = args.github_repositories
+        repositories = [normalize_repository(repository) for repository in args.github_repositories]
         client = GitHubIssueSource(os.getenv("GITHUB_TOKEN"))
         issues = [issue for repository in repositories for issue in client.list_open_issues(repository)]
 
