@@ -4,6 +4,12 @@ from .models import CandidateTask, Issue
 class ScoreAgent:
     """Score contribution suitability with cheap deterministic signals."""
 
+    ACTION_TERMS = (
+        "bug", "fix", "feat", "feature", "support", "add", "implement",
+        "allow", "handle", "docs", "should", "incompatible", "fails",
+        "failure", "missing", "lost", "error", "retry", "improve",
+    )
+
     def score(self, issue: Issue) -> CandidateTask:
         title = issue.title.lower()
         labels = {label.lower() for label in issue.labels}
@@ -19,15 +25,15 @@ class ScoreAgent:
         if labels & {"size/xs", "size/s"}:
             points += 0.10
             reasons.append("small size label suggests bounded implementation effort")
-        if any(word in title for word in ("bug", "fix", "feat", "feature", "support", "add", "implement", "allow", "handle", "docs")):
-            points += 0.25
+        if any(term in title for term in self.ACTION_TERMS):
+            points += 0.30
             reasons.append("title contains an actionable change signal")
         body_length = len(issue.body.strip())
         if body_length:
-            points += 0.10
+            points += 0.15
             reasons.append("issue includes implementation context")
         if body_length >= 200:
-            points += 0.10
+            points += 0.15
             reasons.append("issue contains detailed context or acceptance criteria")
         if any(label in labels for label in ("security", "breaking-change")):
             points -= 0.35
