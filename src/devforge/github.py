@@ -1,7 +1,7 @@
 import json
 from collections.abc import Callable
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
 from .models import Issue
@@ -11,15 +11,29 @@ class GitHubApiError(RuntimeError):
     pass
 
 
+def normalize_repository(value: str) -> str:
+    """Convert a GitHub URL or owner/name value to canonical owner/name."""
+    raw = value.strip()
+    if not raw:
+        raise ValueError("repository cannot be empty")
+    if "://" in raw:
+        parsed = urlparse(raw)
+        if parsed.netloc.lower() not in {"github.com", "www.github.com"}:
+            raise ValueError("repository URL must point to github.com")
+        raw = parsed.path
+    raw = raw.strip("/")
+    if raw.endswith(".git"):
+        raw = raw[:-4]
+    parts = raw.split("/")
+    if len(parts) != 2 or not all(parts):
+        raise ValueError("repository must use owner/name format")
+    return "/".join(parts)
+
+
 class GitHubIssueSource:
     """Read open issues from GitHub without coupling the core pipeline to HTTP."""
 
-    def __init__(
-        self,
-        token: str | None = None,
-        api_base: str = "https://api.github.com",
-        request: Callable[[Request], bytes] | None = None,
-    ) -> None:
+    def __init__(self, token: str | None = None, api_base: str = "https://api.github.com", request: Callable[[Request], bytes] | None = None) -> None:
         self.token = token
         self.api_base = api_base.rstrip("/")
         self._request = request or self._default_request
@@ -33,8 +47,7 @@ class GitHubIssueSource:
             raise GitHubApiError(str(exc)) from exc
 
     def list_open_issues(self, repository: str, per_page: int = 100) -> list[Issue]:
-        if "/" not in repository or repository.startswith("/"):
-            raise ValueError("repository must use owner/name format")
+        repository = normalize_repository(repository)
         query = urlencode({"state": "open", "per_page": min(max(per_page, 1), 100)})
         request = Request(f"{self.api_base}/repos/{repository}/issues?{query}")
         request.add_header("Accept", "application/vnd.github+json")
@@ -51,12 +64,4 @@ class GitHubIssueSource:
     @staticmethod
     def _to_issue(repository: str, item: dict) -> Issue:
         labels = tuple(label["name"] for label in item.get("labels", []) if label.get("name"))
-        return Issue(
-            repository=repository,
-            number=int(item["number"]),
-            title=str(item.get("title", "")),
-            body=str(item.get("body") or ""),
-            labels=labels,
-            url=str(item.get("html_url", "")),
-            state=str(item.get("state", "open")),
-        )
+        return Issue(repository=repository, number=int(item["number"]), title=str(item.get("title", "")), body=str(item.get("body") or ""), labels=labels, url=str(item.get("html_url", "")), state=str(item.get("state", "open")))
