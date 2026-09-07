@@ -1,6 +1,7 @@
 from .contributor import ContributorAgent
 from .github_writer import GitHubRepositoryWriter
 from .model import ModelAdapter
+from .models import TaskStatus
 from .publisher import ContributionPublisher, PublishResult
 from .queue import TaskStore
 from .workspace import WorkspaceManager
@@ -25,15 +26,5 @@ class ContributorLoop:
         self.workspace.apply_files(workspace, proposal.files)
         self.workspace.run(workspace, proposal.test_command)
         result = self.publisher.publish(plan, base_sha, branch, proposal.files, body=proposal.summary)
-        self.store.transition(task_key, self._working_status(), self._fulfilled_status())
+        self.store.transition(task_key, TaskStatus.WORKING, TaskStatus.FULFILLED)
         return result
-
-    @staticmethod
-    def _working_status():
-        from .models import TaskStatus
-        return TaskStatus.WORKING
-
-    @staticmethod
-    def _fulfilled_status():
-        from .models import TaskStatus
-        return TaskStatus.FULFILLED
