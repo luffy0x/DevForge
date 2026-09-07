@@ -9,6 +9,7 @@ class TaskStatus(StrEnum):
     QUEUED = "queued"
     WORKING = "working"
     FULFILLED = "fulfilled"
+    FAILED = "failed"
     REJECTED = "rejected"
 
 
