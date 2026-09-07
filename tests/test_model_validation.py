@@ -26,7 +26,7 @@ class FakeResponse:
 
 def test_model_rejects_path_traversal(tmp_path: Path) -> None:
     adapter = OpenAICompatibleAdapter("key", "model")
-    plan = ContributionPlan("acme/app", 1, "Fix bug", ())
+    plan = ContributionPlan("acme/app#1", "acme/app", 1, "Fix bug", ())
     with patch("devforge.model.urlopen", return_value=FakeResponse()):
         with pytest.raises(ModelAdapterError, match="repository-relative"):
             adapter.propose(plan, tmp_path)
