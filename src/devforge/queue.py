@@ -70,6 +70,10 @@ class TaskStore:
             )
         return result.rowcount == 1
 
+    def retry(self, task_key: str) -> bool:
+        """Move one failed task back to the queue without duplicating it."""
+        return self.transition(task_key, TaskStatus.FAILED, TaskStatus.QUEUED)
+
     @staticmethod
     def _to_task(row: sqlite3.Row) -> CandidateTask:
         issue = Issue(

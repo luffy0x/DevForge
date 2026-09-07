@@ -21,10 +21,15 @@ class ContributorLoop:
         plan = self.contributor.claim(task_key)
         if plan is None:
             return None
-        workspace = self.workspace.prepare(repository_url, branch)
-        proposal = self.model.propose(plan, workspace)
-        self.workspace.apply_files(workspace, proposal.files)
-        self.workspace.run(workspace, proposal.test_command)
-        result = self.publisher.publish(plan, base_sha, branch, proposal.files, body=proposal.summary)
+        try:
+            workspace = self.workspace.prepare(repository_url, branch)
+            proposal = self.model.propose(plan, workspace)
+            self.workspace.apply_files(workspace, proposal.files)
+            self.workspace.run(workspace, proposal.test_command)
+            result = self.publisher.publish(plan, base_sha, branch, proposal.files, body=proposal.summary)
+        except Exception:
+            # Keep the task visible and retryable instead of leaving it stuck in working.
+            self.store.transition(task_key, TaskStatus.WORKING, TaskStatus.FAILED)
+            raise
         self.store.transition(task_key, TaskStatus.WORKING, TaskStatus.FULFILLED)
         return result
