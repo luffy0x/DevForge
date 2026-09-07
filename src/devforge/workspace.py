@@ -1,3 +1,4 @@
+import re
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -27,12 +28,17 @@ class WorkspaceManager:
         parsed = urlparse(repository_url)
         if parsed.scheme not in {"https", "ssh"} or not parsed.netloc:
             raise WorkspaceError("repository_url must be an https or ssh URL")
+        if not re.fullmatch(r"[A-Za-z0-9._/-]+", branch) or branch.startswith((".", "/", "-")) or ".." in branch:
+            raise WorkspaceError("branch must be a safe git branch name")
         repository_name = Path(parsed.path.rstrip("/")).stem
         if not repository_name:
             raise WorkspaceError("repository_url must contain a repository name")
         workspace = self.root / repository_name
         if not (workspace / ".git").exists():
             self._run(("git", "clone", "--depth", "1", repository_url, str(workspace)), cwd=self.root)
+        status = self._run(("git", "status", "--porcelain"), cwd=workspace)
+        if status.stdout.strip():
+            raise WorkspaceError("workspace has uncommitted changes; refusing to reuse it")
         self._run(("git", "fetch", "origin"), cwd=workspace)
         self._run(("git", "checkout", "-B", branch, "origin/HEAD"), cwd=workspace)
         return workspace
