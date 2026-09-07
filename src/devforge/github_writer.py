@@ -26,8 +26,9 @@ class GitHubRepositoryWriter:
         except Exception as exc:
             raise GitHubWriteError(str(exc)) from exc
 
-    def _call(self, method: str, path: str, payload: dict) -> dict:
-        request = Request(f"{self.api_base}{path}", method=method, data=json.dumps(payload).encode())
+    def _call(self, method: str, path: str, payload: dict | None = None) -> dict:
+        data = json.dumps(payload).encode() if payload is not None else None
+        request = Request(f"{self.api_base}{path}", method=method, data=data)
         request.add_header("Accept", "application/vnd.github+json")
         request.add_header("Content-Type", "application/json")
         request.add_header("Authorization", f"Bearer {self.token}")
@@ -39,6 +40,13 @@ class GitHubRepositoryWriter:
         if not isinstance(result, dict):
             raise GitHubWriteError("GitHub response must be an object")
         return result
+
+    def get_branch_head(self, repository: str, branch: str) -> str:
+        result = self._call("GET", f"/repos/{repository}/git/ref/heads/{branch}")
+        sha = result.get("object", {}).get("sha")
+        if not isinstance(sha, str) or not sha:
+            raise GitHubWriteError(f"GitHub did not return a head SHA for {repository}@{branch}")
+        return sha
 
     def create_branch(self, repository: str, branch: str, base_sha: str) -> str:
         result = self._call("POST", f"/repos/{repository}/git/refs", {"ref": f"refs/heads/{branch}", "sha": base_sha})
