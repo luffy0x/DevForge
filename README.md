@@ -59,7 +59,7 @@ python -m devforge contribute \
   --branch devforge/issue-123
 ```
 
-The command uses `DEVFORGE_MODEL` (default `gpt-5.5`) and `DEVFORGE_MODEL_ENDPOINT` (default OpenAI Chat Completions endpoint) when set. It expects the model to return a JSON proposal containing `files`, `test_command`, and `summary`. Proposed paths must be repository-relative; absolute paths and `..` traversal are rejected. Test commands must use an approved executable in argv form; shell syntax and unknown executables are rejected. Files are applied only inside the temporary workspace, tests must pass, and only then is a draft PR created.
+The command uses `DEVFORGE_MODEL` (default `gpt-5.5`) and `DEVFORGE_MODEL_ENDPOINT` (default OpenAI Chat Completions endpoint) when set. It expects the model to return a JSON proposal containing `files`, `test_command`, and `summary`. Proposed paths must be repository-relative; absolute paths and `..` traversal are rejected. Test commands must use an approved executable in argv form; shell syntax and unknown executables are rejected. Files are applied only inside the temporary workspace, tests must pass, and only then is a draft PR created. The generated PR body includes the DevForge task key and `Closes #<issue>` linkage.
 
 Contributor workspaces must be clean before reuse, and generated branch names are validated before checkout. If model, workspace, test, or publishing fails, the task is marked `failed` so it can be retried explicitly:
 
