@@ -43,6 +43,12 @@ python -m devforge contribute \
 
 The command uses `DEVFORGE_MODEL` (default `gpt-5.5`) and `DEVFORGE_MODEL_ENDPOINT` (default OpenAI Chat Completions endpoint) when set. It expects the model to return a JSON proposal containing `files`, `test_command`, and `summary`; proposed files are applied only inside the temporary workspace, tests must pass, and only then is a draft PR created.
 
+If model, workspace, test, or publishing fails, the task is marked `failed` so it can be retried explicitly:
+
+```bash
+python -m devforge retry --task owner/name#123
+```
+
 ## Status
 
 MVP core pipeline is implemented. Changes enter `main` only through reviewed pull requests.
