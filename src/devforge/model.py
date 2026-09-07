@@ -41,6 +41,20 @@ def _validate_files(files: object) -> dict[str, str]:
     return validated
 
 
+def _validate_test_command(command: object) -> tuple[str, ...]:
+    allowed = {"python", "python3", "pytest", "node", "npm", "pnpm", "yarn", "bun", "go", "cargo", "mvn", "gradle", "make", "dotnet", "ruby", "bundle"}
+    if not isinstance(command, (list, tuple)) or not command or len(command) > 20:
+        raise ModelAdapterError("proposal test_command must be a non-empty string list")
+    if not all(isinstance(part, str) and part and "\x00" not in part for part in command):
+        raise ModelAdapterError("proposal test_command must be a non-empty string list")
+    if any(token in part for part in command for token in (";", "|", "&", ">", "<", "`", "$(") ):
+        raise ModelAdapterError("proposal test_command contains shell syntax")
+    executable = Path(command[0]).name
+    if executable not in allowed:
+        raise ModelAdapterError(f"test executable is not allowed: {command[0]!r}")
+    return tuple(command)
+
+
 class OpenAICompatibleAdapter:
     """Generate a validated file map through an OpenAI-compatible chat endpoint."""
 
@@ -76,14 +90,12 @@ class OpenAICompatibleAdapter:
             content = raw["choices"][0]["message"]["content"]
             result = json.loads(content)
             files = _validate_files(result["files"])
-            test_command = tuple(result["test_command"])
+            test_command = _validate_test_command(result["test_command"])
             summary = str(result.get("summary", ""))
         except ModelAdapterError:
             raise
         except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
             raise ModelAdapterError("model returned an invalid contributor proposal") from exc
-        if not test_command or not all(isinstance(part, str) and part for part in test_command):
-            raise ModelAdapterError("proposal test_command must be a non-empty string list")
         return ModelProposal(files=files, test_command=test_command, summary=summary)
 
     @staticmethod
@@ -106,6 +118,7 @@ class OpenAICompatibleAdapter:
             "rules": [
                 "Inspect relevant files before proposing changes.",
                 "Do not modify secrets, CI credentials, or files outside the repository.",
+                "Return an argv-only test command using a standard test executable; never use shell syntax.",
                 "Prefer the smallest testable change.",
             ],
         }, ensure_ascii=False)
