@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from .contributor import ContributionPlan
+from .execution import ExecutionArtifact
 from .github_writer import GitHubRepositoryWriter
 
 
@@ -22,3 +23,6 @@ class ContributionPublisher:
             self.writer.commit_file(plan.repository, branch, path, content, f"feat: implement issue #{plan.issue_number}")
         pr_number = self.writer.create_draft_pr(plan.repository, branch, self.base_branch, title or plan.objective, body)
         return PublishResult(plan.repository, branch, pr_number)
+
+    def publish_artifact(self, artifact: ExecutionArtifact, base_sha: str, branch: str, title: str | None = None, body: str = "") -> PublishResult:
+        return self.publish(artifact.plan, base_sha, branch, artifact.files, title, body)
