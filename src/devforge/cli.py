@@ -18,7 +18,7 @@ def _issues_from_json(path: Path) -> list[Issue]:
     return [Issue(item["repository"], int(item["number"]), item["title"], item.get("body", ""), tuple(item.get("labels", [])), item.get("url", ""), item.get("state", "open")) for item in raw]
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="devforge")
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--issues-file", type=Path)
@@ -26,7 +26,7 @@ def main() -> int:
     parser.add_argument("--repository", action="append", default=[])
     parser.add_argument("--database", type=Path, default=Path("devforge.db"))
     parser.add_argument("--threshold", type=float, default=0.5)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     if args.issues_file:
         issues = _issues_from_json(args.issues_file)
