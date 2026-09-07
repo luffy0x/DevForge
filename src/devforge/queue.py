@@ -62,6 +62,18 @@ class TaskStore:
             row = connection.execute("SELECT * FROM tasks WHERE task_key = ?", (task_key,)).fetchone()
         return self._to_task(row) if row else None
 
+    def list(self, status: TaskStatus | None = None) -> list[CandidateTask]:
+        """Return persisted tasks, optionally filtered by lifecycle status."""
+        query = "SELECT * FROM tasks"
+        parameters: tuple[str, ...] = ()
+        if status is not None:
+            query += " WHERE status = ?"
+            parameters = (status.value,)
+        query += " ORDER BY score DESC, repository, issue_number"
+        with self._connect() as connection:
+            rows = connection.execute(query, parameters).fetchall()
+        return [self._to_task(row) for row in rows]
+
     def transition(self, task_key: str, expected: TaskStatus, target: TaskStatus) -> bool:
         with self._connect() as connection:
             result = connection.execute(

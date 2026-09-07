@@ -23,6 +23,14 @@ Scan live GitHub issues (set `GITHUB_TOKEN` for private repositories or higher r
 python -m devforge --github-repository owner/name
 ```
 
+Inspect persisted tasks:
+
+```bash
+python -m devforge tasks
+python -m devforge tasks --status queued
+python -m devforge tasks --status failed
+```
+
 Claim a queued task for Contributor:
 
 ```bash

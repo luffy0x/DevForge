@@ -4,6 +4,7 @@ from .cli import main as scan_main
 from .claim_cli import main as claim_main
 from .contribute_cli import main as contribute_main
 from .retry_cli import main as retry_main
+from .tasks_cli import main as tasks_main
 
 
 if __name__ == "__main__":
@@ -16,4 +17,7 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "retry":
         sys.argv = [sys.argv[0], *sys.argv[2:]]
         raise SystemExit(retry_main())
+    if len(sys.argv) > 1 and sys.argv[1] == "tasks":
+        sys.argv = [sys.argv[0], *sys.argv[2:]]
+        raise SystemExit(tasks_main())
     raise SystemExit(scan_main())
