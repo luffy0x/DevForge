@@ -17,11 +17,21 @@ python -m pip install -e ".[test]"
 python -m pytest
 ```
 
-Scan live GitHub issues (set `GITHUB_TOKEN` for private repositories or higher rate limits):
+Scan live GitHub issues once (set `GITHUB_TOKEN` for private repositories or higher rate limits):
 
 ```bash
 python -m devforge --github-repository owner/name
 ```
+
+Continuously rescan issues and upsert new queue entries every five minutes:
+
+```bash
+python -m devforge watch \
+  --github-repository owner/name \
+  --interval 300
+```
+
+Use `--once` to validate the watch configuration without looping. The watcher only performs Finder/Score/queue work; it never claims or executes a Contributor task automatically.
 
 Inspect persisted tasks:
 
