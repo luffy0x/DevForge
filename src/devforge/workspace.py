@@ -24,12 +24,12 @@ class WorkspaceManager:
         self.root = Path(root).expanduser().resolve()
         self.root.mkdir(parents=True, exist_ok=True)
 
-    def prepare(self, repository_url: str, branch: str) -> Path:
+    def prepare(self, repository_url: str, branch: str, base_branch: str = "main") -> Path:
         parsed = urlparse(repository_url)
         if parsed.scheme not in {"https", "ssh"} or not parsed.netloc:
             raise WorkspaceError("repository_url must be an https or ssh URL")
-        if not re.fullmatch(r"[A-Za-z0-9._/-]+", branch) or branch.startswith((".", "/", "-")) or ".." in branch:
-            raise WorkspaceError("branch must be a safe git branch name")
+        self._validate_branch(branch)
+        self._validate_branch(base_branch)
         repository_name = Path(parsed.path.rstrip("/")).stem
         if not repository_name:
             raise WorkspaceError("repository_url must contain a repository name")
@@ -39,9 +39,14 @@ class WorkspaceManager:
         status = self._run(("git", "status", "--porcelain"), cwd=workspace)
         if status.stdout.strip():
             raise WorkspaceError("workspace has uncommitted changes; refusing to reuse it")
-        self._run(("git", "fetch", "origin"), cwd=workspace)
-        self._run(("git", "checkout", "-B", branch, "origin/HEAD"), cwd=workspace)
+        self._run(("git", "fetch", "origin", base_branch), cwd=workspace)
+        self._run(("git", "checkout", "-B", branch, f"origin/{base_branch}"), cwd=workspace)
         return workspace
+
+    @staticmethod
+    def _validate_branch(branch: str) -> None:
+        if not re.fullmatch(r"[A-Za-z0-9._/-]+", branch) or branch.startswith((".", "/", "-")) or ".." in branch:
+            raise WorkspaceError("branch must be a safe git branch name")
 
     def apply_files(self, workspace: Path, files: dict[str, str]) -> None:
         workspace = workspace.resolve()
