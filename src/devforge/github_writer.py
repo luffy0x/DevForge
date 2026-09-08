@@ -56,6 +56,13 @@ class GitHubRepositoryWriter:
         result = self._call("PUT", f"/repos/{repository}/contents/{path}", {"message": message, "content": base64.b64encode(content.encode()).decode(), "branch": branch})
         return result.get("commit", {}).get("sha", "")
 
-    def create_draft_pr(self, repository: str, branch: str, base: str, title: str, body: str = "") -> int:
-        result = self._call("POST", f"/repos/{repository}/pulls", {"title": title, "head": branch, "base": base, "body": body, "draft": True})
+    def create_draft_pr(self, repository: str, branch: str, base: str, title: str, body: str = "", head_repository: str | None = None) -> int:
+        head = branch
+        if head_repository and head_repository != repository:
+            head = f"{head_repository.split('/', 1)[0]}:{branch}"
+        result = self._call(
+            "POST",
+            f"/repos/{repository}/pulls",
+            {"title": title, "head": head, "base": base, "body": body, "draft": True},
+        )
         return int(result["number"])
