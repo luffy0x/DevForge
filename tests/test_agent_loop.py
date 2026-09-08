@@ -12,7 +12,8 @@ from devforge.workspace import CommandResult
 
 
 class FakeWorkspace:
-    def prepare(self, repository_url, branch):
+    def prepare(self, repository_url, branch, base_branch):
+        self.base_branch = base_branch
         return Path("/tmp/devforge-loop")
 
     def apply_files(self, workspace, files):
@@ -50,8 +51,12 @@ def test_contributor_loop_publishes_and_fulfills(tmp_path) -> None:
     store = TaskStore(tmp_path / "db")
     task = CandidateTask(Issue("acme/app", 1, "Fix bug"), 0.8, status=TaskStatus.QUEUED)
     store.upsert(task)
-    result = ContributorLoop(store, FakeWorkspace(), FakeModel(), FakeWriter()).run_once(task.task_key, "https://github.com/acme/app.git", "base", "devforge/1")
+    workspace = FakeWorkspace()
+    result = ContributorLoop(store, workspace, FakeModel(), FakeWriter(), base_branch="release").run_once(
+        task.task_key, "https://github.com/acme/app.git", "base", "devforge/1"
+    )
     assert result == PublishResult("acme/app", "devforge/1", 99)
+    assert workspace.base_branch == "release"
     completed = store.get(task.task_key)
     assert completed.status is TaskStatus.FULFILLED
     assert completed.metadata["pull_request_url"] == "https://github.com/acme/app/pull/99"
