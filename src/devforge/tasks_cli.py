@@ -15,10 +15,12 @@ def main() -> int:
     tasks = TaskStore(args.database).list(status)
     for task in tasks:
         pull_request_url = task.metadata.get("pull_request_url")
+        last_error = task.metadata.get("last_error")
         publication = f" pull_request={pull_request_url}" if pull_request_url else ""
+        failure = f" error={last_error!r}" if last_error else ""
         print(
             f"{task.task_key} score={task.score:.2f} status={task.status.value} "
-            f"title={task.issue.title}{publication}"
+            f"title={task.issue.title}{publication}{failure}"
         )
     print(f"count={len(tasks)}")
     return 0
