@@ -25,3 +25,28 @@ def test_writer_builds_branch_file_and_draft_pr_requests() -> None:
     assert calls[1][2]["sha"] == "base-sha"
     assert calls[2][2]["branch"] == "feat/1"
     assert calls[3][2]["draft"] is True
+
+
+def test_writer_uses_fork_owner_for_cross_repository_pr() -> None:
+    payloads = []
+
+    def fake(request):
+        payloads.append(json.loads(request.data))
+        return b'{"number":12}'
+
+    writer = GitHubRepositoryWriter("token", request=fake)
+    writer.create_draft_pr(
+        "upstream/project",
+        "devforge/4",
+        "main",
+        "Fix parser",
+        head_repository="contributor/project",
+    )
+
+    assert payloads == [{
+        "title": "Fix parser",
+        "head": "contributor:devforge/4",
+        "base": "main",
+        "body": "",
+        "draft": True,
+    }]
