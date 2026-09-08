@@ -49,6 +49,18 @@ def test_task_store_records_publication_result(tmp_path) -> None:
     }
 
 
+def test_task_store_records_failure_and_clears_it_on_retry(tmp_path) -> None:
+    store = TaskStore(tmp_path / "tasks.db")
+    store.upsert(make_task())
+    assert store.transition("acme/app#7", TaskStatus.SCORED, TaskStatus.WORKING)
+    assert store.fail("acme/app#7", "RuntimeError: test command failed")
+    assert store.get("acme/app#7").metadata["last_error"] == "RuntimeError: test command failed"
+    assert store.retry("acme/app#7")
+    retried = store.get("acme/app#7")
+    assert retried.status is TaskStatus.QUEUED
+    assert "last_error" not in retried.metadata
+
+
 def test_task_store_migrates_existing_database(tmp_path) -> None:
     database = tmp_path / "tasks.db"
     with sqlite3.connect(database) as connection:
