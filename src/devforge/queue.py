@@ -24,11 +24,13 @@ class TaskStore:
                     status TEXT NOT NULL,
                     pull_request_number INTEGER,
                     pull_request_url TEXT,
+                    last_error TEXT,
                     UNIQUE(repository, issue_number)
                 )"""
             )
             self._add_column_if_missing(connection, "pull_request_number", "INTEGER")
             self._add_column_if_missing(connection, "pull_request_url", "TEXT")
+            self._add_column_if_missing(connection, "last_error", "TEXT")
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.database)
@@ -92,6 +94,16 @@ class TaskStore:
             )
         return result.rowcount == 1
 
+    def fail(self, task_key: str, error: str) -> bool:
+        """Record a bounded failure reason while moving one working task to failed."""
+        with self._connect() as connection:
+            result = connection.execute(
+                """UPDATE tasks SET status = ?, last_error = ?
+                   WHERE task_key = ? AND status = ?""",
+                (TaskStatus.FAILED.value, error.strip()[:1000], task_key, TaskStatus.WORKING.value),
+            )
+        return result.rowcount == 1
+
     def record_publication(self, task_key: str, pull_request_number: int) -> bool:
         """Persist the draft PR created for a task without changing its lifecycle state."""
         with self._connect() as connection:
@@ -113,8 +125,14 @@ class TaskStore:
         return result.rowcount == 1
 
     def retry(self, task_key: str) -> bool:
-        """Move one failed task back to the queue without duplicating it."""
-        return self.transition(task_key, TaskStatus.FAILED, TaskStatus.QUEUED)
+        """Move one failed task back to the queue and clear its previous error."""
+        with self._connect() as connection:
+            result = connection.execute(
+                """UPDATE tasks SET status = ?, last_error = NULL
+                   WHERE task_key = ? AND status = ?""",
+                (TaskStatus.QUEUED.value, task_key, TaskStatus.FAILED.value),
+            )
+        return result.rowcount == 1
 
     @staticmethod
     def _to_task(row: sqlite3.Row) -> CandidateTask:
@@ -131,6 +149,8 @@ class TaskStore:
             metadata["pull_request_number"] = row["pull_request_number"]
         if row["pull_request_url"]:
             metadata["pull_request_url"] = row["pull_request_url"]
+        if row["last_error"]:
+            metadata["last_error"] = row["last_error"]
         return CandidateTask(
             issue=issue,
             score=row["score"],
