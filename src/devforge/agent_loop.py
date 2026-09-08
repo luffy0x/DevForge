@@ -18,7 +18,14 @@ class ContributorLoop:
         self.base_branch = base_branch
         self.publisher = ContributionPublisher(writer, base_branch)
 
-    def run_once(self, task_key: str, repository_url: str, base_sha: str, branch: str) -> PublishResult | None:
+    def run_once(
+        self,
+        task_key: str,
+        repository_url: str,
+        base_sha: str,
+        branch: str,
+        publish_repository: str | None = None,
+    ) -> PublishResult | None:
         plan = self.contributor.claim(task_key)
         if plan is None:
             return None
@@ -27,7 +34,14 @@ class ContributorLoop:
             proposal = self.model.propose(plan, workspace)
             self.workspace.apply_files(workspace, proposal.files)
             self.workspace.run(workspace, proposal.test_command)
-            result = self.publisher.publish(plan, base_sha, branch, proposal.files, body=proposal.summary)
+            result = self.publisher.publish(
+                plan,
+                base_sha,
+                branch,
+                proposal.files,
+                body=proposal.summary,
+                publish_repository=publish_repository,
+            )
             self.store.record_publication(task_key, result.pull_request_number)
         except Exception as error:
             # Keep the task visible, diagnosable, and retryable.
