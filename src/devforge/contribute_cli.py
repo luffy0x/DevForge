@@ -13,7 +13,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(prog="devforge contribute")
     parser.add_argument("--task", required=True)
     parser.add_argument("--repository-url", required=True)
-    parser.add_argument("--base-sha", required=True)
+    parser.add_argument("--base-sha")
+    parser.add_argument("--base-branch", default="main")
     parser.add_argument("--branch", required=True)
     parser.add_argument("--database", type=Path, default=Path("devforge.db"))
     parser.add_argument("--workspace-root", type=Path, default=Path(".devforge/workspaces"))
@@ -27,18 +28,25 @@ def main() -> int:
         parser.error("OPENAI_API_KEY is required")
     if not github_token:
         parser.error("GITHUB_TOKEN is required")
+    if "#" not in args.task:
+        parser.error("--task must use owner/name#issue-number format")
 
+    repository = args.task.rsplit("#", 1)[0]
+    writer = GitHubRepositoryWriter(github_token)
+    base_sha = args.base_sha or writer.get_branch_head(repository, args.base_branch)
     loop = ContributorLoop(
         TaskStore(args.database),
         WorkspaceManager(args.workspace_root),
         OpenAICompatibleAdapter(api_key, args.model, args.model_endpoint),
-        GitHubRepositoryWriter(github_token),
+        writer,
+        args.base_branch,
     )
-    result = loop.run_once(args.task, args.repository_url, args.base_sha, args.branch)
+    result = loop.run_once(args.task, args.repository_url, base_sha, args.branch)
     if result is None:
         print(f"unable to contribute task: {args.task}")
         return 1
     print(f"repository={result.repository}")
+    print(f"base_sha={base_sha}")
     print(f"branch={result.branch}")
     print(f"pull_request={result.pull_request_number}")
     return 0

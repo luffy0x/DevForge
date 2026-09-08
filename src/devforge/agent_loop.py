@@ -10,12 +10,12 @@ from .workspace import WorkspaceManager
 class ContributorLoop:
     """Claim, propose, test, publish, and complete one queued task."""
 
-    def __init__(self, store: TaskStore, workspace: WorkspaceManager, model: ModelAdapter, writer: GitHubRepositoryWriter) -> None:
+    def __init__(self, store: TaskStore, workspace: WorkspaceManager, model: ModelAdapter, writer: GitHubRepositoryWriter, base_branch: str = "main") -> None:
         self.store = store
         self.contributor = ContributorAgent(store)
         self.workspace = workspace
         self.model = model
-        self.publisher = ContributionPublisher(writer)
+        self.publisher = ContributionPublisher(writer, base_branch)
 
     def run_once(self, task_key: str, repository_url: str, base_sha: str, branch: str) -> PublishResult | None:
         plan = self.contributor.claim(task_key)
