@@ -22,14 +22,26 @@ class TaskStore:
                     score REAL NOT NULL,
                     reasons TEXT NOT NULL,
                     status TEXT NOT NULL,
+                    pull_request_number INTEGER,
+                    pull_request_url TEXT,
+                    last_error TEXT,
                     UNIQUE(repository, issue_number)
                 )"""
             )
+            self._add_column_if_missing(connection, "pull_request_number", "INTEGER")
+            self._add_column_if_missing(connection, "pull_request_url", "TEXT")
+            self._add_column_if_missing(connection, "last_error", "TEXT")
 
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.database)
         connection.row_factory = sqlite3.Row
         return connection
+
+    @staticmethod
+    def _add_column_if_missing(connection: sqlite3.Connection, name: str, definition: str) -> None:
+        columns = {row["name"] for row in connection.execute("PRAGMA table_info(tasks)")}
+        if name not in columns:
+            connection.execute(f"ALTER TABLE tasks ADD COLUMN {name} {definition}")
 
     def upsert(self, task: CandidateTask) -> None:
         issue = task.issue
@@ -82,9 +94,45 @@ class TaskStore:
             )
         return result.rowcount == 1
 
+    def fail(self, task_key: str, error: str) -> bool:
+        """Record a bounded failure reason while moving one working task to failed."""
+        with self._connect() as connection:
+            result = connection.execute(
+                """UPDATE tasks SET status = ?, last_error = ?
+                   WHERE task_key = ? AND status = ?""",
+                (TaskStatus.FAILED.value, error.strip()[:1000], task_key, TaskStatus.WORKING.value),
+            )
+        return result.rowcount == 1
+
+    def record_publication(self, task_key: str, pull_request_number: int) -> bool:
+        """Persist the draft PR created for a task without changing its lifecycle state."""
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT repository FROM tasks WHERE task_key = ?", (task_key,)
+            ).fetchone()
+            if row is None:
+                return False
+            result = connection.execute(
+                """UPDATE tasks
+                   SET pull_request_number = ?, pull_request_url = ?
+                   WHERE task_key = ?""",
+                (
+                    pull_request_number,
+                    f"https://github.com/{row['repository']}/pull/{pull_request_number}",
+                    task_key,
+                ),
+            )
+        return result.rowcount == 1
+
     def retry(self, task_key: str) -> bool:
-        """Move one failed task back to the queue without duplicating it."""
-        return self.transition(task_key, TaskStatus.FAILED, TaskStatus.QUEUED)
+        """Move one failed task back to the queue and clear its previous error."""
+        with self._connect() as connection:
+            result = connection.execute(
+                """UPDATE tasks SET status = ?, last_error = NULL
+                   WHERE task_key = ? AND status = ?""",
+                (TaskStatus.QUEUED.value, task_key, TaskStatus.FAILED.value),
+            )
+        return result.rowcount == 1
 
     @staticmethod
     def _to_task(row: sqlite3.Row) -> CandidateTask:
@@ -96,9 +144,17 @@ class TaskStore:
             labels=tuple(filter(None, row["labels"].split("\\n"))),
             url=row["url"],
         )
+        metadata = {}
+        if row["pull_request_number"] is not None:
+            metadata["pull_request_number"] = row["pull_request_number"]
+        if row["pull_request_url"]:
+            metadata["pull_request_url"] = row["pull_request_url"]
+        if row["last_error"]:
+            metadata["last_error"] = row["last_error"]
         return CandidateTask(
             issue=issue,
             score=row["score"],
             reasons=tuple(filter(None, row["reasons"].split("\\n"))),
             status=TaskStatus(row["status"]),
+            metadata=metadata,
         )

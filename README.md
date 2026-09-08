@@ -41,6 +41,8 @@ python -m devforge tasks --status queued
 python -m devforge tasks --status failed
 ```
 
+Completed tasks include their generated draft-PR URL. Failed tasks include their most recent execution error; `devforge retry` clears that error before returning a task to the queue. Existing SQLite databases are migrated automatically when DevForge starts.
+
 Claim a queued task for Contributor:
 
 ```bash
@@ -58,7 +60,7 @@ python -m devforge contribute \
   --branch devforge/issue-123
 ```
 
-DevForge resolves the current SHA of `main` automatically. Use `--base-branch` for a different target branch, or `--base-sha` to pin an explicit commit. The command uses `DEVFORGE_MODEL` (default `gpt-5.5`) and `DEVFORGE_MODEL_ENDPOINT` (default OpenAI Chat Completions endpoint) when set. It expects the model to return a JSON proposal containing `files`, `test_command`, and `summary`. Proposed paths must be repository-relative; absolute paths and `..` traversal are rejected. Test commands must use an approved executable in argv form; shell syntax and unknown executables are rejected. Files are applied only inside the temporary workspace, tests must pass, and only then is a draft PR created. The generated PR body includes the DevForge task key and `Closes #<issue>` linkage.
+DevForge resolves the current SHA of `main` automatically. Use `--base-branch` for a different target branch, or `--base-sha` to pin an explicit commit. The target branch is also the workspace checkout base, so the model, local test command, and generated PR use the same code revision. The command uses `DEVFORGE_MODEL` (default `gpt-5.5`) and `DEVFORGE_MODEL_ENDPOINT` (default OpenAI Chat Completions endpoint) when set. It sends the model a bounded, text-only repository snapshot (excluding Git metadata, dotenv files, and common private-key formats), then expects a JSON proposal containing `files`, `test_command`, and `summary`. Proposed paths must be repository-relative; absolute paths and `..` traversal are rejected. Test commands must use an approved executable in argv form; shell syntax and unknown executables are rejected. Files are applied only inside the temporary workspace, tests must pass, and only then is a draft PR created. The generated PR body includes the DevForge task key and `Closes #<issue>` linkage.
 
 Contributor workspaces must be clean before reuse, and generated branch names are validated before checkout. If model, workspace, test, or publishing fails, the task is marked `failed` so it can be retried explicitly:
 
