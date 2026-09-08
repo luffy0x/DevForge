@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 
 from .agent_loop import ContributorLoop
+from .github import normalize_repository
 from .github_writer import GitHubRepositoryWriter
 from .model import OpenAICompatibleAdapter
 from .queue import TaskStore
@@ -13,6 +14,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(prog="devforge contribute")
     parser.add_argument("--task", required=True)
     parser.add_argument("--repository-url", required=True)
+    parser.add_argument("--publish-repository", help="Repository that receives the branch; defaults to the task repository")
     parser.add_argument("--base-sha")
     parser.add_argument("--base-branch", default="main")
     parser.add_argument("--branch", required=True)
@@ -31,9 +33,10 @@ def main() -> int:
     if "#" not in args.task:
         parser.error("--task must use owner/name#issue-number format")
 
-    repository = args.task.rsplit("#", 1)[0]
+    task_repository = args.task.rsplit("#", 1)[0]
+    publish_repository = normalize_repository(args.publish_repository) if args.publish_repository else task_repository
     writer = GitHubRepositoryWriter(github_token)
-    base_sha = args.base_sha or writer.get_branch_head(repository, args.base_branch)
+    base_sha = args.base_sha or writer.get_branch_head(publish_repository, args.base_branch)
     loop = ContributorLoop(
         TaskStore(args.database),
         WorkspaceManager(args.workspace_root),
@@ -41,11 +44,18 @@ def main() -> int:
         writer,
         args.base_branch,
     )
-    result = loop.run_once(args.task, args.repository_url, base_sha, args.branch)
+    result = loop.run_once(
+        args.task,
+        args.repository_url,
+        base_sha,
+        args.branch,
+        publish_repository=publish_repository,
+    )
     if result is None:
         print(f"unable to contribute task: {args.task}")
         return 1
     print(f"repository={result.repository}")
+    print(f"publish_repository={publish_repository}")
     print(f"base_sha={base_sha}")
     print(f"branch={result.branch}")
     print(f"pull_request={result.pull_request_number}")
