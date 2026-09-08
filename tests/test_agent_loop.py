@@ -1,7 +1,6 @@
 from pathlib import Path
 
 from devforge.agent_loop import ContributorLoop
-from devforge.contributor import ContributionPlan
 from devforge.github_writer import GitHubRepositoryWriter
 from devforge.model import ModelProposal
 from devforge.models import CandidateTask, Issue, TaskStatus
@@ -46,4 +45,6 @@ def test_contributor_loop_publishes_and_fulfills(tmp_path) -> None:
     store.upsert(task)
     result = ContributorLoop(store, FakeWorkspace(), FakeModel(), FakeWriter()).run_once(task.task_key, "https://github.com/acme/app.git", "base", "devforge/1")
     assert result == PublishResult("acme/app", "devforge/1", 99)
-    assert store.get(task.task_key).status is TaskStatus.FULFILLED
+    completed = store.get(task.task_key)
+    assert completed.status is TaskStatus.FULFILLED
+    assert completed.metadata["pull_request_url"] == "https://github.com/acme/app/pull/99"
