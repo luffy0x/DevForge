@@ -41,6 +41,8 @@ python -m devforge tasks --status queued
 python -m devforge tasks --status failed
 ```
 
+Completed tasks include their generated draft-PR URL. Existing SQLite databases are migrated automatically when DevForge starts.
+
 Claim a queued task for Contributor:
 
 ```bash
