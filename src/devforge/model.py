@@ -47,7 +47,7 @@ def _validate_test_command(command: object) -> tuple[str, ...]:
         raise ModelAdapterError("proposal test_command must be a non-empty string list")
     if not all(isinstance(part, str) and part and "\x00" not in part for part in command):
         raise ModelAdapterError("proposal test_command must be a non-empty string list")
-    if any(token in part for part in command for token in (";", "|", "&", ">", "<", "`", "$(") ):
+    if any(token in part for part in command for token in (";", "|", "&", ">", "<", "`", "$(")):
         raise ModelAdapterError("proposal test_command contains shell syntax")
     executable = Path(command[0]).name
     if executable not in allowed:
@@ -57,6 +57,11 @@ def _validate_test_command(command: object) -> tuple[str, ...]:
 
 class OpenAICompatibleAdapter:
     """Generate a validated file map through an OpenAI-compatible chat endpoint."""
+
+    _MAX_CONTEXT_FILES = 20
+    _MAX_CONTEXT_FILE_CHARS = 4_000
+    _MAX_CONTEXT_CHARS = 24_000
+    _SENSITIVE_FILENAMES = {".env", ".env.local", ".env.production", ".npmrc", ".pypirc"}
 
     def __init__(self, api_key: str, model: str, endpoint: str = "https://api.openai.com/v1/chat/completions") -> None:
         if not api_key:
@@ -98,9 +103,39 @@ class OpenAICompatibleAdapter:
             raise ModelAdapterError("model returned an invalid contributor proposal") from exc
         return ModelProposal(files=files, test_command=test_command, summary=summary)
 
-    @staticmethod
-    def _prompt(plan: ContributionPlan, workspace: Path) -> str:
-        paths = sorted(str(path.relative_to(workspace)) for path in workspace.rglob("*") if path.is_file())[:200]
+    @classmethod
+    def _workspace_context(cls, workspace: Path) -> dict[str, str]:
+        """Return a small, text-only repository snapshot safe to send to the model."""
+        context: dict[str, str] = {}
+        remaining = cls._MAX_CONTEXT_CHARS
+        for path in sorted(workspace.rglob("*")):
+            if not path.is_file() or path.is_symlink():
+                continue
+            relative = path.relative_to(workspace)
+            if ".git" in relative.parts or cls._is_sensitive(relative):
+                continue
+            try:
+                content = path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            content = content[:cls._MAX_CONTEXT_FILE_CHARS]
+            if not content or remaining <= 0:
+                continue
+            content = content[:remaining]
+            context[relative.as_posix()] = content
+            remaining -= len(content)
+            if len(context) >= cls._MAX_CONTEXT_FILES:
+                break
+        return context
+
+    @classmethod
+    def _is_sensitive(cls, path: Path) -> bool:
+        name = path.name.lower()
+        return name in cls._SENSITIVE_FILENAMES or name.endswith((".pem", ".key", ".p12", ".pfx"))
+
+    @classmethod
+    def _prompt(cls, plan: ContributionPlan, workspace: Path) -> str:
+        context = cls._workspace_context(workspace)
         return json.dumps({
             "task": {
                 "repository": plan.repository,
@@ -108,15 +143,14 @@ class OpenAICompatibleAdapter:
                 "objective": plan.objective,
                 "constraints": plan.constraints,
             },
-            "workspace": str(workspace),
-            "file_paths": paths,
+            "repository_context": context,
             "output_schema": {
                 "files": "map of repository-relative paths to complete UTF-8 file contents",
                 "test_command": "argv array for a focused repository test command",
                 "summary": "short implementation summary",
             },
             "rules": [
-                "Inspect relevant files before proposing changes.",
+                "Use the supplied repository context to identify the smallest relevant change.",
                 "Do not modify secrets, CI credentials, or files outside the repository.",
                 "Return an argv-only test command using a standard test executable; never use shell syntax.",
                 "Prefer the smallest testable change.",
