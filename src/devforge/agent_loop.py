@@ -28,9 +28,9 @@ class ContributorLoop:
             self.workspace.run(workspace, proposal.test_command)
             result = self.publisher.publish(plan, base_sha, branch, proposal.files, body=proposal.summary)
             self.store.record_publication(task_key, result.pull_request_number)
-        except Exception:
-            # Keep the task visible and retryable instead of leaving it stuck in working.
-            self.store.transition(task_key, TaskStatus.WORKING, TaskStatus.FAILED)
+        except Exception as error:
+            # Keep the task visible, diagnosable, and retryable.
+            self.store.fail(task_key, f"{type(error).__name__}: {error}")
             raise
         self.store.transition(task_key, TaskStatus.WORKING, TaskStatus.FULFILLED)
         return result
