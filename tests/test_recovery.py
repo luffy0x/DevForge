@@ -2,13 +2,12 @@ import pytest
 
 from devforge.agent_loop import ContributorLoop
 from devforge.github_writer import GitHubRepositoryWriter
-from devforge.model import ModelProposal
 from devforge.models import CandidateTask, Issue, TaskStatus
 from devforge.queue import TaskStore
 
 
 class FakeWorkspace:
-    def prepare(self, repository_url, branch):
+    def prepare(self, repository_url, branch, base_branch):
         return "/tmp/devforge-recovery"
 
     def apply_files(self, workspace, files):

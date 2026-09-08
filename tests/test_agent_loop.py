@@ -43,7 +43,7 @@ class FakeWriter(GitHubRepositoryWriter):
     def commit_file(self, repository, branch, path, content, message):
         return "sha"
 
-    def create_draft_pr(self, repository, branch, base, title, body=""):
+    def create_draft_pr(self, repository, branch, base, title, body="", head_repository=None):
         return 99
 
 
